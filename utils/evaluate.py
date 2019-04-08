@@ -1,11 +1,12 @@
 """ Official evaluation script for v1.1 of the SQuAD dataset. """
-from __future__ import print_function
-from collections import Counter
-import string
+from __future__ import absolute_import
+
 import re
-import argparse
-import json
 import sys
+import json
+import string
+import argparse
+from collections import Counter
 
 
 def normalize_answer(s):

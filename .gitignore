@@ -1,6 +1,6 @@
 # Dataset and temperory folers
 data/
-tmp/
+experiments/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
