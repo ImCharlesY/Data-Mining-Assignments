@@ -1,3 +1,8 @@
+# Dataset and temperory folers
+data/
+tmp/
+submission/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -24,6 +29,7 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
+sftp-config.json
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
