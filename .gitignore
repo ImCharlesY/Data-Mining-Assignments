@@ -2,6 +2,9 @@
 data/
 tmp/
 submission/
+logs/
+.temporary/
+logits/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

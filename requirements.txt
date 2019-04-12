@@ -1,0 +1,9 @@
+torch
+torchvision
+torchcrf
+numpy
+pandas
+scipy
+node2vec
+paramiko
+tensorflow-gpu
