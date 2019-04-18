@@ -16,16 +16,14 @@ from models.layer import NGCNLayer
 
 class NGCN(torch.nn.Module):
 
-  def __init__(self, nfeat, nlabel, dropout, layers=[16,16,16]):
+  def __init__(self, nfeat, nhid, nlabel, dropout):
     super(NGCN, self).__init__()
 
     self.dropout = dropout
+    self.order = 3
 
-    self.layers = layers
-    self.order = len(self.layers)
-
-    self.main_layers = nn.ModuleList([NGCNLayer(nfeat, self.layers[i-1], i) for i in range(1, self.order+1)])
-    self.fc = nn.Linear(sum(self.layers), nlabel)
+    self.main_layers = nn.ModuleList([NGCNLayer(nfeat, nhid, i) for i in range(1, self.order+1)])
+    self.fc = nn.Linear(nhid*self.order, nlabel)
 
   def forward(self, x, adj):
     x = F.relu(torch.cat([layer(x, adj) for layer in self.main_layers],dim=1))

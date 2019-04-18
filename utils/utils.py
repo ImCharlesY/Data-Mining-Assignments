@@ -70,7 +70,7 @@ def load_data(path='data', percent=0.2, sym=0):
       cols.append(aff['AffiliationID'] + 2)
       datas.append(aff['PaperCount'])
   sp_features = sp.csr_matrix((datas, (rows, cols)), shape=(len(idx_allnodes), max(affs) + 3),  dtype=np.float32)
-  sp_features = unilateral_normalize(sp_features)
+  sp_features = unilateral_normalize(sp_features.T).T
 
   features = torch.FloatTensor(np.array(sp_features.todense()))
   labels = torch.FloatTensor(labels)

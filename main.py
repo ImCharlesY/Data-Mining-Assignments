@@ -23,9 +23,8 @@ import torch.optim as optim
 from models.bp import BP
 from models.gcn import GCN
 from models.ngcn import NGCN
-from models.gccn import GCCN
+from models.multinet import MultiNet
 from models.node2vec import node2vec
-from models.concatnet import ConcatNet
 from sklearn.decomposition import PCA
 
 from utils.parse import parse_args
@@ -61,37 +60,41 @@ np.random.seed(args.seed)
 torch.manual_seed(args.seed)
 torch.cuda.manual_seed(args.seed)
 
+if args.multinet:
+  args.sym = 0
+  args.embedding = 0
 
 # Load dataset
 graph, adj, features, labels, idx_train, idx_val, idx_test = load_data(path=args.data_dir, percent=args.train_percent, sym=args.sym)
-if args.embedding != 1:
-  embedding = node2vec(graph, args.data_dir, args.sym)
+embedding = node2vec(graph, args.data_dir, args.sym)
+if args.multinet:
+  adj1 = adj.t()
+  embedding1 = node2vec(graph, args.data_dir, 1)
 del graph
 gc.collect()
 if args.pca > 0:
-  aff_features = PCA(args.pca, whiten = True).fit_transform(features.numpy()[:,2:])
-  features = np.hstack([features[:,:2], aff_features])
-  # features = aff_features
-  features = torch.FloatTensor(features)
+  aff_features = PCA(args.pca, whiten = True).fit_transform(features.numpy())
+  features = torch.FloatTensor(aff_features)
 if args.embedding == 0:
   del features
   features = embedding.to(device)
   msg = 'Uses only the embedding features (extracting from Node2Vec model).'
+  if args.multinet:
+    features1 = embedding1.to(device)
+    msg = '`multinet` specified, load embeddings for both adj and adj.T.'
 elif args.embedding == 1:
+  del embedding
   features = features.to(device)
   msg = 'Uses only the original features.'
 elif args.embedding == 2:
   features = torch.cat([features, embedding], 1).to(device)
   msg = 'Uses both the original features and the embedding features (extracting from Node2Vec model) '\
   + '-- simply concatenating.'
-elif args.embedding == 3:
-  features, embedding = features.to(device), embedding.to(device)
-  features = [features, embedding]
-  msg = 'Uses both the original features and the embedding features (extracting from Node2Vec model) '\
-  + '-- using fcn to transform the original features and concatenate the result with the embedding features.'
 logging.info(msg)
 
 adj = adj.to(device)
+if args.multinet:
+  adj1 = adj1.to(device)
 labels = labels.to(device)
 idx_train = idx_train.to(device)
 idx_val = idx_val.to(device)
@@ -100,6 +103,7 @@ idx_test = idx_test.to(device)
 logging.info('\n'+'\n'.join([
       'Num of nodes: {}'.format(adj.shape[0]),
       'Feature dimension: {}'.format(features.shape[1] if args.embedding != 3 else features[1].shape[1]),
+      '' if not args.multinet else 'Feature1 dimension: {}'.format(features1.shape[1]),
       'Num of training set: {}'.format(len(idx_train)),
       'Num of validation set: {}'.format(len(idx_val)),
       'Num of testing set: {}'.format(len(idx_test)),
@@ -107,29 +111,19 @@ logging.info('\n'+'\n'.join([
 
 
 # Model, optimizer, loss function
-nfeat = features.shape[1] if args.embedding != 3 else features[1].shape[1] + args.fhid
-if args.net == 'bp':
-  model = BP(nfeat=nfeat,
-              nhid=args.fhid,
-              nlabel=labels.size(1),
-              nlayer=args.number_of_layers,
-              dropout=args.dropout).to(device)
-elif args.net == 'gcn':
-  model = GCN(nfeat=nfeat,
-              nhid=args.ghid,
-              nlabel=labels.size(1),
-              dropout=args.dropout).to(device)
-elif args.net == 'ngcn':
-  model = NGCN(nfeat=nfeat,
-              nlabel=labels.size(1),
-              dropout=args.dropout,
-              layers=args.layers).to(device)
-if args.embedding == 3:
-  model = ConcatNet(nfeat=features[0].shape[1],
-              nhid=args.fhid,
-              nlayer=args.number_of_layers,
-              dropout=args.dropout,
-              postnet=model).to(device)
+modules = {'bp':BP,'gcn':GCN,'ngcn':NGCN}
+if args.multinet:
+  model = MultiNet(nfeat=features.shape[1],
+                   nhid=args.ghid,
+                   nlabel=labels.size(1),
+                   dropout=args.dropout,
+                   nfeat1=features1.shape[1],
+                   module=modules[args.net]).to(device)
+else:
+  model = modules[args.net](nfeat=features.shape[1],
+                            nhid=args.fhid if args.net == 'bp' else args.ghid,
+                            nlabel=labels.size(1),
+                            dropout=args.dropout).to(device)
 
 logging.info('\nNetwork architecture:\n{}'.format(str(model)))
 
@@ -145,8 +139,15 @@ def train(epoch):
 
   model.train()
   optimizer.zero_grad()
-  output = model(features, adj)
-  loss_train = criterion(output[idx_train], labels[idx_train])
+  if args.multinet:
+    output, h0, h1 = model(features, adj, features1, adj1)
+    loss_o = criterion(output[idx_train], labels[idx_train])
+    loss_h0 = criterion(h0[idx_train], labels[idx_train])
+    loss_h1 = criterion(h1[idx_train], labels[idx_train])
+    loss_train = loss_o + loss_h0 + loss_h1
+  else:
+    output = model(features, adj)
+    loss_train = criterion(output[idx_train], labels[idx_train])
   loss_train.backward()
   optimizer.step()
 
@@ -154,7 +155,10 @@ def train(epoch):
   f1_train = f1_score(output[idx_train], labels[idx_train])      
 
   model.eval()
-  output = model(features, adj)
+  if args.multinet:
+    output, _, _ = model(features, adj, features1, adj1)
+  else:
+    output = model(features, adj)
 
   loss_val = criterion(output[idx_val], labels[idx_val])
   acc_val = accuracy(output[idx_val], labels[idx_val])
@@ -178,7 +182,10 @@ def train(epoch):
 
 def evaluate():
   model.eval()
-  output = model(features, adj)
+  if args.multinet:
+    output, _, _ = model(features, adj, features1, adj1)
+  else:
+    output = model(features, adj)
 
   idx_alltrain = torch.cat([idx_train, idx_val], 0)
   train_preds = torch.ge(output.float(), 0.5)[idx_alltrain].cpu()
@@ -205,7 +212,11 @@ def evaluate():
 
 def submit():
   model.eval()
-  output = model(features, adj)
+  if args.multinet:
+    output, _, _ = model(features, adj, features1, adj1)
+  else:
+    output = model(features, adj)
+
   if not os.path.isdir('logits'):
     os.makedirs('logits')
   logging.info('Save the output logits tensor to {}'.format(OLT_FILENAME))

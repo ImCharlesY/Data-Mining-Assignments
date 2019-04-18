@@ -13,20 +13,19 @@ import torch.nn.functional as F
 
 
 class BP(nn.Module):
-  def __init__(self, nfeat, nhid, nlabel, nlayer, dropout):
+  def __init__(self, nfeat, nhid, nlabel, dropout):
     super(BP, self).__init__()
 
     self.dropout = dropout
 
     self.fc1 = nn.Linear(nfeat, nhid)
-    self.mid = nn.ModuleList([nn.Linear(nhid, nhid) for _ in range(nlayer)])
+    self.mid = nn.Linear(nhid, nhid)
     self.fc2 = nn.Linear(nhid, nlabel)
 
   def forward(self, x, _):
     x = F.relu(self.fc1(x))
     x = F.dropout(x, self.dropout, training=self.training)
-    for fc in self.mid:
-        x = F.relu(fc(x))
-        x = F.dropout(x, self.dropout, training=self.training)   
+    x = F.relu(self.mid(x))
+    x = F.dropout(x, self.dropout, training=self.training)   
     x = torch.sigmoid(self.fc2(x))
     return x
