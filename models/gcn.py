@@ -24,6 +24,7 @@ class GCN(nn.Module):
     self.gc2 = GCNLayer(nhid, nlabel)
 
   def forward(self, x, adj):
+    # x = F.dropout(x, self.dropout, training=self.training)
     x = F.relu(self.gc1(x, adj))
     x = F.dropout(x, self.dropout, training=self.training)
     x = torch.sigmoid(self.gc2(x, adj))

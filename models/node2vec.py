@@ -13,12 +13,17 @@ import logging
 import numpy as np
 
 def node2vec(graph, embedding_dir, sym=0):
-  if sym == 2:
-    sym = 0
-  elif sym == 3:
-    sym = 1
-  if sym not in [0,1]:
-    raise ValueError('`sym` only accepts 0 or 1.')
+  if sym == 0 or sym == 2:
+    return _node2vec(graph, embedding_dir, 0)
+  elif sym == 1 or sym == 3:
+    return _node2vec(graph, embedding_dir, 1)
+  elif sym in [4,5,6]:
+    return torch.cat([_node2vec(graph, embedding_dir, 0), _node2vec(graph, embedding_dir, 1)],1)
+  else:
+    raise ValueError('`sym` only accepts value in [0,4].')
+
+
+def _node2vec(graph, embedding_dir, sym=0):
     
   EMBEDDING_FILENAME = os.path.join(embedding_dir, 'embeddings{}.emb'.format(sym))
   EMBEDDING_MODEL_FILENAME = os.path.join(embedding_dir, 'embeddings{}.model'.format(sym))
@@ -34,7 +39,7 @@ def node2vec(graph, embedding_dir, sym=0):
     else:
       logging.warning('Cannot find model file. Start to train a new model. IT WILL TAKE A LONG TIME...')
       # Precompute probabilities and generate walks - **ON WINDOWS ONLY WORKS WITH workers=1**
-      node2vec = Node2Vec(graph.reverse() if sym else graph, dimensions=64, walk_length=30, num_walks=200, workers=4)
+      node2vec = Node2Vec(graph.reverse() if sym else graph, dimensions=256, walk_length=30, num_walks=200, workers=4)
       # Embed nodes
       model = node2vec.fit(window=10, min_count=1, batch_words=4)
       model.save(EMBEDDING_MODEL_FILENAME)

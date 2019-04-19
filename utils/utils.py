@@ -31,11 +31,11 @@ def load_data(path='data', percent=0.2, sym=0):
   datas = edges_tbl['Weight'].values
   sp_adj = sp.csr_matrix((datas, (rows, cols)), shape=((len(idx_allnodes),)*2))
   # build symmetric adjacency matrix
-  if sym == 0:
+  if sym == 0 or sym == 5:
     pass
-  elif sym == 1:
+  elif sym == 1 or sym == 6:
     sp_adj = sp_adj.T
-  else: # [2,3]
+  else: # [2,3,4]
     sp_adj = sp_adj + sp_adj.T.multiply(sp_adj.T > sp_adj) - sp_adj.multiply(sp_adj.T > sp_adj)
   sp_adj = bilateral_normalize(sp_adj + sp.eye(sp_adj.shape[0]))
 

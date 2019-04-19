@@ -26,7 +26,8 @@ class NGCN(torch.nn.Module):
     self.fc = nn.Linear(nhid*self.order, nlabel)
 
   def forward(self, x, adj):
-    x = F.relu(torch.cat([layer(x, adj) for layer in self.main_layers],dim=1))
+    # x = F.dropout(x, self.dropout, training=self.training)
+    x = F.relu(torch.cat([layer(x, adj) for layer in self.main_layers], dim=1))
     x = F.dropout(x, self.dropout, training=self.training)
     x = torch.sigmoid(self.fc(x))        
     return x

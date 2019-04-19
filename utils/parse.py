@@ -39,10 +39,13 @@ def parse_args():
   parser.add_argument('--sym',
                       type=int,
                       default=0,
-                      choices=[0,1,2,3],
+                      choices=[0,1,2,3,4,5,6],
             help='0 - Original adjacency matrix; 1 - Transpose adjacency matrix;' 
             + ' 2 - Convert adjacency matirx to symmetric (embedding 0);'
-            + ' 3 - Convert adjacency matirx to symmetric (embedding 1);')
+            + ' 3 - Convert adjacency matirx to symmetric (embedding 1);'
+            + ' 4 - Convert adjacency matrix to symmetric (concatenate embedding0 and embedding1);'
+            + ' 5 - Original adjacency matrix (concatenate embedding0 and embedding1);'
+            + ' 6 - Transpose adjacency matrix (concatenate embedding0 and embedding1);')
 
   parser.add_argument('--pca',
                       type=float,
@@ -52,7 +55,7 @@ def parse_args():
   parser.add_argument('--net', 
                       type=str,
                       default='gcn',
-                      choices=['gcn', 'ngcn', 'gccn', 'bp'],
+                      choices=['gcn', 'ngcn', 'gccn', 'gat', 'hat', 'bp'],
             help='Network architecture. Default is `gcn`.')
 
   parser.add_argument('--ghid',
@@ -62,8 +65,8 @@ def parse_args():
 
   parser.add_argument('--fhid',
                       type=int,
-                      default=256,
-            help='Number of hidden units in full-connected neural network. Ignored when `embedding` is not equal to 3. Default is 256.')
+                      default=64,
+            help='Number of output dimension of the subnet in multinet. Default is 64.')
 
   parser.add_argument('--number_of_layers',
                       type=int,
@@ -76,13 +79,13 @@ def parse_args():
             help='Dropout rate (1 - keep probability). Default is 0.5.')
 
   parser.add_argument('--cuda',
-                      default=0,
                       type=int, 
+                      default=0,
             help='The ids of CUDA to be used if available. Default is 0.')
 
   parser.add_argument('--train_percent',
-                      default=0.2,
                       type=float,
+                      default=0.2,
             help='The percent of dataset to be used as training set. Default is 0.2.')
 
   parser.add_argument('--epochs',
@@ -91,13 +94,13 @@ def parse_args():
             help='Number of epochs to train. Default is 500.')
 
   parser.add_argument('--early-stopping',
-                      type = int,
-                      default = 20,
+                      type=int,
+                      default=20,
             help = 'Number of early stopping rounds. Default is 20.')
 
   parser.add_argument('--loss_fun',
-                      default='f1',
                       type=str,
+                      default='f1',
                       choices=['f1','bce','hamming'],
             help='Loss function. Default is `f1`.')
 

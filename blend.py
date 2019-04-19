@@ -54,20 +54,22 @@ for file in args.resume_filename:
 
 output = torch.sum(torch.cat([ts.unsqueeze(0) * w for ts, w in zip(logits_lst, args.weight)],0),0)
 
-_, _, _, labels, idx_alltrain, _, idx_test = load_data(path=args.data_dir, percent=1.)
+_, _, _, labels, idx_train, idx_val, idx_test = load_data(path=args.data_dir, percent=0.2)
+idx_alltrain = torch.cat([idx_train, idx_val],0)
 
-train_preds = torch.ge(output.float(), 0.5)[idx_alltrain]
-train_labels = labels[idx_alltrain]
+val_preds = torch.ge(output.float(), 0.5)[idx_val]
+val_labels = labels[idx_val]
 
-acc = accuracy(train_preds, train_labels)
-f1 = f1_score(train_preds, train_labels)
-print('Evaluate on the whole training set ({} nodes in total) : acc {:.4f}, f1 {:.4f}'.format(len(idx_alltrain), acc, f1))
+acc = accuracy(val_preds, val_labels)
+f1 = f1_score(val_preds, val_labels)
+print('Evaluate on the validation set ({} nodes in total) : acc {:.4f}, f1 {:.4f}'.format(len(idx_val), acc, f1))
 
 
-blendname = 'blend-' + '-'.join([os.path.splitext(file)[0] for file in args.resume_filename]) + 'csv'
+blendname = 'blend-' + '-'.join([os.path.splitext(file)[0] for file in args.resume_filename]) + '.csv'
 SUB_FILENAME = os.path.join('submission', blendname)
 TMP_FILENAME = os.path.join('.temporary', blendname)
 
+train_preds = torch.ge(output.float(), 0.5)[idx_alltrain]
 train_dict = {
   idx_alltrain[id].item():' '.join(list(map(str, row.nonzero().numpy().ravel().tolist()))) 
   for id, row in enumerate(train_preds)

@@ -23,6 +23,7 @@ import torch.optim as optim
 from models.bp import BP
 from models.gcn import GCN
 from models.ngcn import NGCN
+from models.gat import GAT, HAT
 from models.multinet import MultiNet
 from models.node2vec import node2vec
 from sklearn.decomposition import PCA
@@ -68,7 +69,6 @@ if args.multinet:
 graph, adj, features, labels, idx_train, idx_val, idx_test = load_data(path=args.data_dir, percent=args.train_percent, sym=args.sym)
 embedding = node2vec(graph, args.data_dir, args.sym)
 if args.multinet:
-  adj1 = adj.t()
   embedding1 = node2vec(graph, args.data_dir, 1)
 del graph
 gc.collect()
@@ -93,8 +93,6 @@ elif args.embedding == 2:
 logging.info(msg)
 
 adj = adj.to(device)
-if args.multinet:
-  adj1 = adj1.to(device)
 labels = labels.to(device)
 idx_train = idx_train.to(device)
 idx_val = idx_val.to(device)
@@ -111,14 +109,24 @@ logging.info('\n'+'\n'.join([
 
 
 # Model, optimizer, loss function
-modules = {'bp':BP,'gcn':GCN,'ngcn':NGCN}
+modules = {'bp':BP,'gcn':GCN,'ngcn':NGCN,'gat':GAT}
 if args.multinet:
-  model = MultiNet(nfeat=features.shape[1],
+  features = [features, features1]
+  adj = [adj, adj.t()]
+  model = MultiNet(nfeat=features[0].shape[1],
                    nhid=args.ghid,
+                   nmid=args.fhid,
                    nlabel=labels.size(1),
                    dropout=args.dropout,
-                   nfeat1=features1.shape[1],
+                   nfeat1=features[1].shape[1],
                    module=modules[args.net]).to(device)
+elif args.net == 'hat':
+  adj = [adj, adj.t()]
+  model = HAT(nfeat=features.shape[1],
+              nhid=args.ghid,
+              nlabel=labels.size(1),
+              nsemantic=len(adj),
+              dropout=args.dropout).to(device)
 else:
   model = modules[args.net](nfeat=features.shape[1],
                             nhid=args.fhid if args.net == 'bp' else args.ghid,
@@ -139,15 +147,8 @@ def train(epoch):
 
   model.train()
   optimizer.zero_grad()
-  if args.multinet:
-    output, h0, h1 = model(features, adj, features1, adj1)
-    loss_o = criterion(output[idx_train], labels[idx_train])
-    loss_h0 = criterion(h0[idx_train], labels[idx_train])
-    loss_h1 = criterion(h1[idx_train], labels[idx_train])
-    loss_train = loss_o + loss_h0 + loss_h1
-  else:
-    output = model(features, adj)
-    loss_train = criterion(output[idx_train], labels[idx_train])
+  output = model(features, adj)
+  loss_train = criterion(output[idx_train], labels[idx_train])
   loss_train.backward()
   optimizer.step()
 
@@ -155,10 +156,7 @@ def train(epoch):
   f1_train = f1_score(output[idx_train], labels[idx_train])      
 
   model.eval()
-  if args.multinet:
-    output, _, _ = model(features, adj, features1, adj1)
-  else:
-    output = model(features, adj)
+  output = model(features, adj)
 
   loss_val = criterion(output[idx_val], labels[idx_val])
   acc_val = accuracy(output[idx_val], labels[idx_val])
@@ -176,16 +174,12 @@ def train(epoch):
         'f1_val: {:.4f}'.format(f1_val.item()),
         'time: {:.4f}s'.format(time.time() - t),
   ]))
-
   return f1_val
 
 
 def evaluate():
   model.eval()
-  if args.multinet:
-    output, _, _ = model(features, adj, features1, adj1)
-  else:
-    output = model(features, adj)
+  output = model(features, adj)
 
   idx_alltrain = torch.cat([idx_train, idx_val], 0)
   train_preds = torch.ge(output.float(), 0.5)[idx_alltrain].cpu()
@@ -212,10 +206,7 @@ def evaluate():
 
 def submit():
   model.eval()
-  if args.multinet:
-    output, _, _ = model(features, adj, features1, adj1)
-  else:
-    output = model(features, adj)
+  output = model(features, adj)
 
   if not os.path.isdir('logits'):
     os.makedirs('logits')
@@ -259,11 +250,11 @@ try:
   model.load_state_dict(best_model)
   evaluate()
   submit()
-except KeyboardInterrupt:
+except:
   print('')
   for file in [LOG_FILENAME, TMP_FILENAME, SUB_FILENAME]:
     if os.path.isfile(file):
       print('Remove {}'.format(file))
       os.system('rm {}'.format(file))
-  print('KeyboardInterrupt! Exit..')
-  sys.exit(0)
+  import traceback
+  traceback.print_exc()
