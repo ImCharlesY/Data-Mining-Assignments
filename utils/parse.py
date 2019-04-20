@@ -65,8 +65,8 @@ def parse_args():
 
   parser.add_argument('--fhid',
                       type=int,
-                      default=64,
-            help='Number of output dimension of the subnet in multinet. Default is 64.')
+                      default=256,
+            help='Number of output dimension of the subnet in multinet. Default is 256.')
 
   parser.add_argument('--number_of_layers',
                       type=int,
@@ -112,8 +112,8 @@ def parse_args():
 
   parser.add_argument('--lr',
                       type=float,
-                      default=0.001,
-            help='Initial learning rate. Default is 0.001.')
+                      default=0.005,
+            help='Initial learning rate. Default is 0.005.')
 
   parser.add_argument('--weight_decay',
                       type=float,

@@ -1,9 +1,8 @@
-torch
+torch==1.0.1
 torchvision
-torchcrf
-numpy
-pandas
-scipy
-node2vec
-paramiko
-tensorflow-gpu
+numpy>=1.16.0
+pandas>=0.24.0
+scipy==1.2.1
+node2vec==0.3.0
+scikit-learn==0.21.2
+tensorflow-gpu==1.13.1
